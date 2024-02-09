@@ -41,3 +41,36 @@ bool UDoltFunctionLibrary::ExportDataTable(FString DoltBinPath,FString DoltRepoP
     }
     return true;
 }
+
+bool UDoltFunctionLibrary::ImportDataTable(FString DoltBinPath,FString DoltRepoPath) {
+    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    for (UObject* Asset : Assets)
+    {
+        UDataTable* DataTable = Cast<UDataTable>(Asset);
+        if (DataTable)
+        {
+            const TCHAR* TempDir = FGenericPlatformProcess::UserTempDir();
+            FString Path = FPaths::CreateTempFilename(TempDir, u"Dolt", u".csv");
+            FString StdOut, StdErr;
+            FString Args = FString::Printf(TEXT("table export %s \"%s\""), *DataTable->GetName(), *Path);
+            FPlatformProcess::ExecProcess(*DoltBinPath, *Args, nullptr, &StdOut, &StdErr, *DoltRepoPath);
+            if (StdErr.Len() > 0) {
+                UE_LOG(LogTemp, Error, TEXT("Dolt Error: %s"), *StdErr);
+                return false;
+            }
+
+            if (StdOut.Len() > 0) {
+                UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
+            }
+
+            FString DataTableContents;
+            if (!FFileHelper::LoadFileToString(DataTableContents, *Path)) {
+                UE_LOG(LogTemp, Error, TEXT("Failed to load DataTable from file"));
+                return false;
+            }
+            DataTable->EmptyTable();
+            DataTable->CreateTableFromCSVString(DataTableContents);
+        }
+    }
+    return true;
+}
