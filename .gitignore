@@ -1,0 +1,9 @@
+*.code-workspace
+**/Binaries
+/Content
+/DerivedDataCache
+/.vscode
+/Intermediate
+/Plugins/Dolt/Content
+/Plugins/Dolt/Intermediate
+/Saved
