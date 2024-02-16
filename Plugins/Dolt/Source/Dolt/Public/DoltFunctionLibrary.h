@@ -15,4 +15,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Dolt")
     static bool ImportDataTable(FString DoltBinPath, FString DoltRepoPath);
+
+    UFUNCTION(BlueprintCallable, Category = "Dolt")
+    static bool DiffDataTable(FString DoltBinPath, FString DoltRepoPath);
+
 };
