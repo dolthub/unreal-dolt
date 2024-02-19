@@ -26,7 +26,7 @@ bool UDoltFunctionLibrary::ExportDataTable(FString DoltBinPath,FString DoltRepoP
         UDataTable* DataTable = Cast<UDataTable>(Asset);
         if (DataTable)
         {
-            if (!Dolt.ExportDataTable(DataTable)) {
+            if (!Dolt.ExportDataTable(DataTable, "exported", "main")) {
                 return false;
             }
         }

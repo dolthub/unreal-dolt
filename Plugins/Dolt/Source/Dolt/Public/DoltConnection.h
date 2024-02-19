@@ -9,13 +9,32 @@ public:
     const FString DoltRepoPath;
 
     static FDoltConnection Connect(FString DoltBinPath, FString DoltRepoPath) {
+        // TODO: Require that the repo has a clean working set before connecting.
         return FDoltConnection {
             .DoltBinPath = DoltBinPath,
             .DoltRepoPath = DoltRepoPath
         };
     }
 
-    bool ExportDataTable(UDataTable* DataTable);
+    struct CommandOutput {
+        FString *StdOut = nullptr;
+        FString *StdErr = nullptr;
+        int32 *OutReturnCode = nullptr;
+    };
+    
+    bool ExecuteCommand(CommandOutput Output, FString Args);
+
+    bool ExportDataTable(UDataTable* DataTable, FString BranchName, FString ParentBranchName);
 
     bool ImportDataTable(UDataTable* DataTable);
+
+private:
+
+    bool CheckoutNewBranch(FString BranchName);
+
+    bool CheckoutExistingBranch(FString BranchName);
+
+    bool ImportTableToDolt(FString TableName, FString FilePath);
+
+    bool Commit(FString Message);
 };
