@@ -17,7 +17,7 @@
 #include "./SourceControlHelpers.h"
 #include "./SourceControlUtils.h"
 
-bool UDoltFunctionLibrary::ExportDataTable(FString DoltBinPath,FString DoltRepoPath)
+bool UDoltFunctionLibrary::ExportDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath)
 {
     FDoltConnection Dolt = FDoltConnection::Connect(DoltBinPath, DoltRepoPath);
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
@@ -34,7 +34,7 @@ bool UDoltFunctionLibrary::ExportDataTable(FString DoltBinPath,FString DoltRepoP
     return true;
 }
 
-bool UDoltFunctionLibrary::ImportDataTable(FString DoltBinPath,FString DoltRepoPath) {
+bool UDoltFunctionLibrary::ImportDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
     FDoltConnection Dolt = FDoltConnection::Connect(DoltBinPath, DoltRepoPath);
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
     for (UObject* Asset : Assets)
@@ -51,7 +51,7 @@ bool UDoltFunctionLibrary::ImportDataTable(FString DoltBinPath,FString DoltRepoP
 }
 
 
-bool UDoltFunctionLibrary::DiffDataTable(FString DoltBinPath, FString DoltRepoPath) {
+bool UDoltFunctionLibrary::DiffDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         UE_LOG(LogTemp, Error, TEXT("Failed to load Source Control Provider"));

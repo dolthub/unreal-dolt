@@ -1,17 +1,18 @@
 #pragma once
 
+#include "Engine/EngineTypes.h"
 #include "DoltSettings.generated.h"
 
-UCLASS(Config=Plugins, defaultconfig, meta = (DisplayName="Dolt Settings"))
+UCLASS(Config=Editor, defaultconfig, meta = (DisplayName="Dolt Settings"))
 class UDoltSettings : public UDeveloperSettings
 {
 	GENERATED_BODY()
 
 public:
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "General")
-	FString DoltBinPath;
+	FFilePath DoltBinPath;
 	
 	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "General")
-	FString DoltRepoPath;
+	FDirectoryPath DoltRepoPath;
 
 };

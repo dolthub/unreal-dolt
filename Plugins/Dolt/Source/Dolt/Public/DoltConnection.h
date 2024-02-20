@@ -5,10 +5,10 @@
 class FDoltConnection {
 
 public:
-    const FString DoltBinPath;
-    const FString DoltRepoPath;
+    const FFilePath DoltBinPath;
+    const FDirectoryPath DoltRepoPath;
 
-    static FDoltConnection Connect(FString DoltBinPath, FString DoltRepoPath) {
+    static FDoltConnection Connect(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
         // TODO: Require that the repo has a clean working set before connecting.
         return FDoltConnection {
             .DoltBinPath = DoltBinPath,

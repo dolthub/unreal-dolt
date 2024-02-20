@@ -4,7 +4,7 @@
 
 bool FDoltConnection::ExecuteCommand(CommandOutput Output, FString Args) {
     UE_LOG(LogTemp, Error, TEXT("Executing dolt %s"), *Args);
-    return FPlatformProcess::ExecProcess(*DoltBinPath, *Args, Output.OutReturnCode, Output.StdOut, Output.StdErr, *DoltRepoPath);
+    return FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args, Output.OutReturnCode, Output.StdOut, Output.StdErr, *DoltRepoPath.Path);
 }
 
 bool FDoltConnection::ExportDataTable(UDataTable* DataTable, FString BranchName, FString ParentBranchName) {
@@ -34,7 +34,7 @@ bool FDoltConnection::ImportDataTable(UDataTable* DataTable) {
     UE_LOG(LogTemp, Display, TEXT("Created tmp file at %s"), *Path);
     FString StdOut, StdErr;
     FString Args = FString::Printf(TEXT("table export %s \"%s\""), *DataTable->GetName(), *Path);
-    FPlatformProcess::ExecProcess(*DoltBinPath, *Args, nullptr, &StdOut, &StdErr, *DoltRepoPath);
+    FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args, nullptr, &StdOut, &StdErr, *DoltRepoPath.Path);
 
     if (StdOut.Len() > 0) {
         UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
