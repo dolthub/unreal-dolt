@@ -10,7 +10,7 @@ public class Dolt : ModuleRules
 		
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "DeveloperSettings" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] {"Blutility", "EditorScriptingUtilities"});
+		PrivateDependencyModuleNames.AddRange(new string[] {"Blutility", "EditorScriptingUtilities", "SourceControl"});
 		PrivateIncludePaths.AddRange(new string[] { System.IO.Path.GetFullPath(Target.RelativeEnginePath) + "Source/Editor/Blutility/Private" });
 		
 		DynamicallyLoadedModuleNames.AddRange(

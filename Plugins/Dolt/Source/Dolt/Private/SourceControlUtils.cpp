@@ -6,7 +6,7 @@
 #include "ISourceControlModule.h"
 #include "SourceControlOperations.h"
 
-#include "./SourceControlHelpers.h"
+#include "SourceControlHelpers.h"
 
 TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> GetHeadRevision(ISourceControlState *State) {
     int32 HistorySize = State->GetHistorySize();
@@ -45,7 +45,7 @@ TSharedPtr< ISourceControlState, ESPMode::ThreadSafe > GetStateWithHistory(ISour
     UE_LOG(LogTemp, Error, TEXT("Package FileName: %s"), *Package->GetLoadedPath().GetLocalFullPath());
     auto UpdateStatusCommand = ISourceControlOperation::Create<FUpdateStatus>();
     UpdateStatusCommand->SetUpdateHistory(true);
-    FString Filename = PackageFilename(Package);
+    FString Filename = USourceControlHelpers::PackageFilename(Package);
 
     TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
 
@@ -80,4 +80,14 @@ UObject* GetUObjectFromRevision(ISourceControlRevision* Revision) {
     }
     UE_LOG(LogTemp, Error, TEXT("Loaded package %s"), *CurrentPackage->GetLoadedPath().GetLocalFullPath());
     return CurrentPackage->FindAssetInPackage(RF_NoFlags);
+}
+
+FString AbsoluteFilename(FString FileName) {
+	if(FPaths::IsRelative(FileName)) {
+		FileName = FPaths::ConvertRelativePathToFull(FileName);
+    }
+
+	FPaths::NormalizeFilename(FileName);
+	
+	return FileName;
 }
