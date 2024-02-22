@@ -7,16 +7,22 @@
 
 #include "DoltConnection.generated.h"
 
+enum class CommitOptions : uint8 {
+    None = 0,
+    SkipEmpty = 1 << 0,
+};
+ENUM_CLASS_FLAGS(CommitOptions);
+
 UCLASS()
 class UDoltConnection : public UObject {
     GENERATED_BODY()
 
 public:
-	const FFilePath DoltBinPath;
-	const FDirectoryPath DoltRepoPath;
+	FFilePath DoltBinPath;
+	FDirectoryPath DoltRepoPath;
 
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Dolt")
-    static UDoltConnection* ConnectToDolt(const FFilePath DoltBinPath, const FDirectoryPath DoltRepoPath) {
+    static UDoltConnection* ConnectToDolt(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
         // TODO: Require that the repo has a clean working set before connecting.
 
         UDoltConnection* Result = NewObject<UDoltConnection>();
@@ -46,6 +52,15 @@ public:
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
+    struct MergeArgs {
+        FString From, To;
+    };
+
+    void Merge(
+        MergeArgs Args,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
     struct RebaseArgs {
         FString From, To;
     };
@@ -67,13 +82,19 @@ private:
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
+    void CheckoutNewOrExistingBranch(
+        FString BranchName,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
     void ImportTableToDolt(
         FString TableName,
         FString FilePath,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
-
+    
     void Commit(FString Message,
+        CommitOptions Options,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 };

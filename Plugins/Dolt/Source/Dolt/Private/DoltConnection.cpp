@@ -54,7 +54,7 @@ void UDoltConnection::ExportDataTables(
     }
 
     if (BranchName != ParentBranchName) {
-        CheckoutNewBranch(BranchName, IsSuccess, OutMessage);
+        CheckoutNewOrExistingBranch(BranchName, IsSuccess, OutMessage);
         if (IsSuccess != DoltResult::Success) {
             return;
         }
@@ -68,7 +68,7 @@ void UDoltConnection::ExportDataTables(
         }
     }
 
-    Commit(FString::Printf(TEXT("Imported from Unreal")), IsSuccess, OutMessage);
+    Commit(FString::Printf(TEXT("Imported from Unreal")), CommitOptions::SkipEmpty, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -116,6 +116,21 @@ void UDoltConnection::ImportDataTables(
 
     IsSuccess = DoltResult::Success;
     return;
+}
+
+void UDoltConnection::CheckoutNewOrExistingBranch(
+        FString BranchName,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const {
+    ExecuteCommand(
+        {
+            .Command = FString::Printf(TEXT("checkout -B %s"), *BranchName),
+            .SuccessMessage = FString::Printf(TEXT("checked out branch %s"), *BranchName),
+            .FailureMessage = FString::Printf(TEXT("failed to checkout branch %s"), *BranchName),
+        },
+        IsSuccess,
+        OutMessage
+    );
 }
 
 void UDoltConnection::CheckoutNewBranch(
@@ -166,10 +181,10 @@ void UDoltConnection::ImportTableToDolt(
 
 void UDoltConnection::Commit(
         FString CommitMessage,
+        CommitOptions Options,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
-    FString StdOut, StdErr;
-    bool SkipEmpty = false;
+    bool SkipEmpty = (Options & CommitOptions::SkipEmpty) == CommitOptions::SkipEmpty;
     ExecuteCommand(
         {
             .Command = FString::Printf(TEXT("commit -A %s -m \"%s\""), SkipEmpty ? TEXT("--skip-empty") : TEXT(""), *CommitMessage),
@@ -180,6 +195,26 @@ void UDoltConnection::Commit(
         OutMessage
     );
 }
+
+void UDoltConnection::Merge(MergeArgs Args,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const {
+    CheckoutExistingBranch(Args.To, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+    ExecuteCommand(
+        {
+            .Command = FString::Printf(TEXT("merge %s"), *Args.From),
+            .SuccessMessage = FString::Printf(TEXT("merged %s onto %s"), *Args.From, *Args.To),
+            .FailureMessage = FString::Printf(TEXT("failed to merge %s onto %s"), *Args.From, *Args.To)
+        },
+        IsSuccess,
+        OutMessage
+    );
+}
+
+// This function does not work: Dolt doesn't support non-interactive rebase yet. 
 void UDoltConnection::Rebase(RebaseArgs Args,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
