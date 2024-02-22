@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Engine/DeveloperSettings.h"
 #include "Engine/EngineTypes.h"
 #include "DoltSettings.generated.h"
 
@@ -9,10 +10,15 @@ class UDoltSettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
-	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "General")
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Dolt General")
 	FFilePath DoltBinPath;
 	
-	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "General")
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Dolt General")
 	FDirectoryPath DoltRepoPath;
 
+	UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Dolt General")
+	FString LocalBranchName;
+
+    UPROPERTY(Config, EditAnywhere, BlueprintReadOnly, Category = "Dolt General")
+	FString RemoteBranchName;
 };
