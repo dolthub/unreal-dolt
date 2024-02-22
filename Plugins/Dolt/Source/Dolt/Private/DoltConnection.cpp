@@ -2,12 +2,27 @@
 #include "DoltConnection.h"
 
 #include "./Result.h"
+#include "./DoltFunctionLibrary.h"
 
 #include "CoreMinimal.h"
 
-bool UDoltConnection::ExecuteCommand(CommandOutput Output, FString Args) const {
-    UE_LOG(LogTemp, Display, TEXT("Executing dolt %s"), *Args);
-    return FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args, Output.OutReturnCode, Output.StdOut, Output.StdErr, *DoltRepoPath.Path);
+void UDoltConnection::ExecuteCommand(ExecuteCommandArgs Args, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) const {
+    FString StdOut, StdErr;
+    int32 OutReturnCode;
+    UE_LOG(LogTemp, Display, TEXT("Executing dolt %s"), *Args.Command);
+    bool ProcessExecuted = FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args.Command, &OutReturnCode, &StdOut, &StdErr, *DoltRepoPath.Path);
+    if (!ProcessExecuted) {
+        DOLT_FAILF("Failed to execute command `dolt %s`. Make sure you have configured the Dolt plugin in \"Edit > Project Settings\"", *Args.Command);
+    }
+
+    if (OutReturnCode != 0) {
+        UE_LOG(LogTemp, Error, TEXT("Dolt Output: %s"), *StdOut);
+        UE_LOG(LogTemp, Error, TEXT("Dolt Error: %s"), *StdErr);
+        DOLT_FAILF("%s: %s", *Args.FailureMessage, StdErr.IsEmpty() ? *StdOut : *StdErr);
+    } else {
+        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
+        DOLT_SUCCEED(*Args.SuccessMessage);
+    }
 }
 
 void UDoltConnection::ExportDataTables(
@@ -75,12 +90,15 @@ void UDoltConnection::ImportDataTables(
         FString StdOut, StdErr;
         int32 OutReturnCode;
         ExecuteCommand(
-            {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-          FString::Printf(TEXT("table export %s \"%s\""), *DataTable->GetName(), *Path));
-
-        if (OutReturnCode != 0) {
-            OutMessage = TEXT("Failed to export table %s: %s"), *DataTable->GetName(), *StdErr;
-            IsSuccess = DoltResult::Failure;
+            {
+                .Command = FString::Printf(TEXT("table export %s \"%s\""), *DataTable->GetName(), *Path),
+                .SuccessMessage = FString::Printf(TEXT("exported table %s"), *DataTable->GetName()),
+                .FailureMessage = FString::Printf(TEXT("failed to export table %s"), *DataTable->GetName()),
+            },
+            IsSuccess,
+            OutMessage
+        );
+        if (IsSuccess != DoltResult::Success) {
             return;
         }
 
@@ -104,45 +122,30 @@ void UDoltConnection::CheckoutNewBranch(
         FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
-    FString StdOut, StdErr;
-    int32 OutReturnCode;
     ExecuteCommand(
-        {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-        FString::Printf(TEXT("checkout -b %s"), *BranchName)
+        {
+            .Command = FString::Printf(TEXT("checkout -b %s"), *BranchName),
+            .SuccessMessage = FString::Printf(TEXT("checked out new branch %s"), *BranchName),
+            .FailureMessage = FString::Printf(TEXT("failed to checkout new branch %s"), *BranchName),
+        },
+        IsSuccess,
+        OutMessage
     );
-
-    if (OutReturnCode != 0) {
-        OutMessage = FString::Printf(TEXT("Failed to checkout branch %s: %s"), *BranchName, *StdErr);
-        IsSuccess = DoltResult::Failure;
-    } else {
-        OutMessage = FString::Printf(TEXT("Checked out branch %s"), *BranchName);
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);
-        IsSuccess = DoltResult::Success;
-    }
 }
 
 void UDoltConnection::CheckoutExistingBranch(
         FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
-    FString StdOut, StdErr;
-    int32 OutReturnCode;
     ExecuteCommand(
-        {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-        FString::Printf(TEXT("checkout %s"), *BranchName)
+        {
+            .Command = FString::Printf(TEXT("checkout %s"), *BranchName),
+            .SuccessMessage = FString::Printf(TEXT("checked out existing branch %s"), *BranchName),
+            .FailureMessage = FString::Printf(TEXT("failed to checkout existing branch %s"), *BranchName),
+        },
+        IsSuccess,
+        OutMessage
     );
-
-    if (OutReturnCode != 0) {
-        FString *CommandOutput = StdErr.IsEmpty() ? &StdOut : &StdErr;
-        OutMessage = FString::Printf(TEXT("Failed to checkout branch %s: %s"), *BranchName, **CommandOutput);
-        IsSuccess = DoltResult::Failure;
-    } else {
-        OutMessage = FString::Printf(TEXT("Checked out branch %s"), *BranchName);
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);
-        IsSuccess = DoltResult::Success;
-    }
 }
 
 void UDoltConnection::ImportTableToDolt(
@@ -150,21 +153,15 @@ void UDoltConnection::ImportTableToDolt(
         FString FilePath,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
-    FString StdOut, StdErr;
-    int32 OutReturnCode;
     ExecuteCommand(
-        {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-        FString::Printf(TEXT("table import -c -f %s \"%s\""), *TableName, *FilePath)
+        {
+            .Command = FString::Printf(TEXT("table import -c -f %s \"%s\""), *TableName, *FilePath),
+            .SuccessMessage = FString::Printf(TEXT("imported table %s from %s"), *TableName, *FilePath),
+            .FailureMessage = FString::Printf(TEXT("failed to import table %s from %s"), *TableName, *FilePath)
+        },
+        IsSuccess,
+        OutMessage
     );
-    if (OutReturnCode != 0) {
-        OutMessage = FString::Printf(TEXT("Failed to import table %s from %s: %s"), *TableName, *FilePath, *StdErr);
-        IsSuccess = DoltResult::Failure;
-    } else {
-        OutMessage = FString::Printf(TEXT("Imported table %s from %s"), *TableName, *FilePath);
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);
-        IsSuccess = DoltResult::Success;
-    }
 }
 
 void UDoltConnection::Commit(
@@ -172,22 +169,17 @@ void UDoltConnection::Commit(
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
     FString StdOut, StdErr;
-    int32 OutReturnCode;
+    bool SkipEmpty = false;
     ExecuteCommand(
-        {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-        FString::Printf(TEXT("commit -A -m \"%s\""), *CommitMessage)
+        {
+            .Command = FString::Printf(TEXT("commit -A %s -m \"%s\""), SkipEmpty ? TEXT("--skip-empty") : TEXT(""), *CommitMessage),
+            .SuccessMessage = FString::Printf(TEXT("made commit \"%s\""), *CommitMessage),
+            .FailureMessage = FString::Printf(TEXT("failed to make commit \"%s\""), *CommitMessage)
+        },
+        IsSuccess,
+        OutMessage
     );
-    if (OutReturnCode != 0) {
-        OutMessage = FString::Printf(TEXT("Failed to commit: %s"), *StdErr);
-        IsSuccess = DoltResult::Failure;
-    } else {
-        OutMessage = TEXT("Committed: %s"), *CommitMessage;
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);
-        IsSuccess = DoltResult::Success;
-    }
 }
-
 void UDoltConnection::Rebase(RebaseArgs Args,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
@@ -195,19 +187,13 @@ void UDoltConnection::Rebase(RebaseArgs Args,
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-    FString StdOut, StdErr;
-    int32 OutReturnCode;
     ExecuteCommand(
-        {.StdOut = &StdOut, .StdErr = &StdErr, .OutReturnCode = &OutReturnCode},
-        FString::Printf(TEXT("rebase %s"), *Args.From)
+        {
+            .Command = FString::Printf(TEXT("rebase %s"), *Args.From),
+            .SuccessMessage = FString::Printf(TEXT("rebased %s onto %s"), *Args.From, *Args.To),
+            .FailureMessage = FString::Printf(TEXT("failed to rebase %s onto %s"), *Args.From, *Args.To)
+        },
+        IsSuccess,
+        OutMessage
     );
-    if (OutReturnCode != 0) {
-        OutMessage = FString::Printf(TEXT("Failed to rebase %s onto %s: %s"), *Args.From, *Args.To, *StdErr);
-        IsSuccess = DoltResult::Failure;
-    } else {
-        OutMessage = FString::Printf(TEXT("Rebased %s onto %s"), *Args.From, *Args.To);
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);
-        IsSuccess = DoltResult::Success;
-    }
 }

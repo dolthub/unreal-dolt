@@ -39,9 +39,7 @@ void UDoltFunctionLibrary::ExportDataTable(
     }
 
     if (DataTables.Num() == 0) {
-        IsSuccess = DoltResult::Failure;
-        OutMessage = TEXT("No DataTables selected");
-        return;
+        DOLT_FAIL("No DataTables selected");
     }
 
     Dolt->ExportDataTables(DataTables, BranchName, BranchName, IsSuccess, OutMessage);
@@ -53,20 +51,6 @@ void UDoltFunctionLibrary::ExportDataTable(
     return;
 }
 
-template <typename T> TArray<T*> GetSelectedAssetsOfType() {
-    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
-    TArray<T*> TypedAssets;
-    for (UObject* Asset : Assets)
-    {
-        T* TypedAsset = Cast<T>(Asset);
-        if (TypedAsset)
-        {
-            TypedAssets.Add(TypedAsset);
-        }
-    }
-    return TypedAssets;
-}
-
 void UDoltFunctionLibrary::ImportDataTable(
         const UDoltConnection* Dolt,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
@@ -74,49 +58,35 @@ void UDoltFunctionLibrary::ImportDataTable(
     Dolt->ImportDataTables(GetSelectedAssetsOfType<UDataTable>(), IsSuccess, OutMessage);
 }
 
-
 void UDoltFunctionLibrary::DiffDataTable(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
-        UE_LOG(LogTemp, Error, TEXT("Failed to load Source Control Provider"));
-        IsSuccess = DoltResult::Failure;
-        return;
+        DOLT_FAIL("Failed to load Source Control Provider");
     }
-    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
-    TArray<UDataTable*> LocalDataTables;
+    TArray<UDataTable*> LocalDataTables = GetSelectedAssetsOfType<UDataTable>();
     TArray<UDataTable*> RemoteDataTables;
     TArray<UDataTable*> AncestorDataTables;
 
-    for (UObject* Asset : Assets)
+    for (UDataTable* DataTable : LocalDataTables)
     {
-        UDataTable* DataTable = Cast<UDataTable>(Asset);
-        if (DataTable)
-        {
-            FString DataTableName = DataTable->GetName();
-            LocalDataTables.Add(DataTable);
-
-            UPackage *Package = DataTable->GetPackage();
-            
-            auto State = GetStateWithHistory(*SourceControlProvider, Package);
-            
-            UDataTable* CurrentTable = GetObjectFromRevision<UDataTable>(State->GetCurrentRevision());
-            if (!CurrentTable) {
-                IsSuccess = DoltResult::Failure;
-                OutMessage = FString::Printf(TEXT("Failed to load synced revision for %s"), *DataTableName);
-                return;
-            }
-
-            AncestorDataTables.Add(CurrentTable);
-
-            UDataTable* HeadTable = GetObjectFromRevision<UDataTable>(GetHeadRevision(State.Get()));
-            if (!CurrentTable) {
-                IsSuccess = DoltResult::Failure;
-                OutMessage = FString::Printf(TEXT("Failed to load most recent revision for %s"), *DataTableName);
-                return;
-            }
-
-            RemoteDataTables.Add(HeadTable);
+        FString DataTableName = DataTable->GetName();
+        UPackage *Package = DataTable->GetPackage();
+        
+        auto State = GetStateWithHistory(*SourceControlProvider, Package);
+        
+        UDataTable* CurrentTable = GetObjectFromRevision<UDataTable>(State->GetCurrentRevision());
+        if (!CurrentTable) {
+            DOLT_FAILF("Failed to load synced revision for %s", *DataTableName);
         }
+
+        AncestorDataTables.Add(CurrentTable);
+
+        UDataTable* HeadTable = GetObjectFromRevision<UDataTable>(GetHeadRevision(State.Get()));
+        if (!CurrentTable) {
+            DOLT_FAILF("Failed to load most recent revision for %s", *DataTableName);
+        }
+
+        RemoteDataTables.Add(HeadTable);
     }
 
     Dolt->ExportDataTables(AncestorDataTables, "remote", "remote", IsSuccess, OutMessage);
@@ -149,7 +119,7 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, T
         return;
     }
 
-    Dolt->Rebase({.From = "remote", .To = "local"}, IsSuccess, OutMessage);
+    Dolt->Merge({.From = "remote", .To = "local"}, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }

@@ -25,15 +25,14 @@ public:
         return Result;
     }
 
-    struct CommandOutput {
-        FString *StdOut = nullptr;
-        FString *StdErr = nullptr;
-        int32 *OutReturnCode = nullptr;
+    struct ExecuteCommandArgs {
+        FString Command, SuccessMessage, FailureMessage;
     };
     
-    bool ExecuteCommand(
-        CommandOutput Output,
-        FString Args) const;
+    void ExecuteCommand(
+        ExecuteCommandArgs DoltCommand,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
 
     void ExportDataTables(
         TArray<UDataTable*> DataTable,

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "EditorUtilityLibrary.h"
 #include "AssetActionUtility.h"
 #include "DoltSettings.h"
 #include "Engine/EngineTypes.h"
@@ -10,6 +11,43 @@
 
 #include "DoltFunctionLibrary.generated.h"
 
+#define DOLT_FAIL(Message) \
+    IsSuccess = DoltResult::Failure;\
+    OutMessage = Message;\
+    UE_LOG(LogTemp, Error, TEXT("%s"), *OutMessage);\
+    return;
+
+#define DOLT_FAILF(Message, ...) \
+    IsSuccess = DoltResult::Failure;\
+    OutMessage = FString::Printf(TEXT(Message), ##__VA_ARGS__);\
+    UE_LOG(LogTemp, Error, TEXT("%s"), *OutMessage);\
+    return;
+
+#define DOLT_SUCCEED(Message) \
+    IsSuccess = DoltResult::Success;\
+    OutMessage = Message;\
+    UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);\
+    return;
+
+#define DOLT_SUCCEEDF(Message, ...) \
+    IsSuccess = DoltResult::Success;\
+    OutMessage = FString::Printf(TEXT(Message), ##__VA_ARGS__);\
+    UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);\
+    return;
+
+template <typename T> TArray<T*> GetSelectedAssetsOfType() {
+    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    TArray<T*> TypedAssets;
+    for (UObject* Asset : Assets)
+    {
+        T* TypedAsset = Cast<T>(Asset);
+        if (TypedAsset)
+        {
+            TypedAssets.Add(TypedAsset);
+        }
+    }
+    return TypedAssets;
+}
 
 UCLASS()
 class DOLT_API UDoltFunctionLibrary : public UBlueprintFunctionLibrary
