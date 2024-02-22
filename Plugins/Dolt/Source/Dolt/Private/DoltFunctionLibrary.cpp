@@ -17,76 +17,167 @@
 #include "./SourceControlHelpers.h"
 #include "./SourceControlUtils.h"
 
-bool UDoltFunctionLibrary::ExportDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath)
+const UDoltSettings* UDoltFunctionLibrary::GetDoltProjectSettings() {
+    return GetDefault<UDoltSettings>();
+}
+
+void UDoltFunctionLibrary::ExportDataTable(
+    const UDoltConnection *Dolt,
+    const FString &BranchName,
+    TEnumAsByte<DoltResult::Type> &IsSuccess,
+    FString &OutMessage)
 {
-    FDoltConnection Dolt = FDoltConnection::Connect(DoltBinPath, DoltRepoPath);
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    TArray<UDataTable*> DataTables;
     for (UObject* Asset : Assets)
     {
         UDataTable* DataTable = Cast<UDataTable>(Asset);
         if (DataTable)
         {
-            if (!Dolt.ExportDataTable(DataTable, "exported", "main")) {
-                return false;
-            }
+            DataTables.Add(DataTable);
         }
     }
-    return true;
+
+    if (DataTables.Num() == 0) {
+        IsSuccess = DoltResult::Failure;
+        OutMessage = TEXT("No DataTables selected");
+        return;
+    }
+
+    Dolt->ExportDataTables(DataTables, BranchName, BranchName, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    IsSuccess = DoltResult::Success;
+    return;
 }
 
-bool UDoltFunctionLibrary::ImportDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
-    FDoltConnection Dolt = FDoltConnection::Connect(DoltBinPath, DoltRepoPath);
+template <typename T> TArray<T*> GetSelectedAssetsOfType() {
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    TArray<T*> TypedAssets;
     for (UObject* Asset : Assets)
     {
-        UDataTable* DataTable = Cast<UDataTable>(Asset);
-        if (DataTable)
+        T* TypedAsset = Cast<T>(Asset);
+        if (TypedAsset)
         {
-            if (!Dolt.ImportDataTable(DataTable)) {
-                return false;
-            }
+            TypedAssets.Add(TypedAsset);
         }
     }
-    return true;
+    return TypedAssets;
+}
+
+void UDoltFunctionLibrary::ImportDataTable(
+        const UDoltConnection* Dolt,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) {
+    Dolt->ImportDataTables(GetSelectedAssetsOfType<UDataTable>(), IsSuccess, OutMessage);
 }
 
 
-bool UDoltFunctionLibrary::DiffDataTable(FFilePath DoltBinPath, FDirectoryPath DoltRepoPath) {
+void UDoltFunctionLibrary::DiffDataTable(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         UE_LOG(LogTemp, Error, TEXT("Failed to load Source Control Provider"));
-        return false;
+        IsSuccess = DoltResult::Failure;
+        return;
     }
-    FDoltConnection Dolt = FDoltConnection::Connect(DoltBinPath, DoltRepoPath);
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    TArray<UDataTable*> LocalDataTables;
+    TArray<UDataTable*> RemoteDataTables;
+    TArray<UDataTable*> AncestorDataTables;
+
     for (UObject* Asset : Assets)
     {
         UDataTable* DataTable = Cast<UDataTable>(Asset);
         if (DataTable)
         {
+            FString DataTableName = DataTable->GetName();
+            LocalDataTables.Add(DataTable);
+
             UPackage *Package = DataTable->GetPackage();
             
             auto State = GetStateWithHistory(*SourceControlProvider, Package);
             
             UDataTable* CurrentTable = GetObjectFromRevision<UDataTable>(State->GetCurrentRevision());
             if (!CurrentTable) {
-                UE_LOG(LogTemp, Error, TEXT("Failed to load DataTable from file"));
-                return false;
+                IsSuccess = DoltResult::Failure;
+                OutMessage = FString::Printf(TEXT("Failed to load synced revision for %s"), *DataTableName);
+                return;
             }
+
+            AncestorDataTables.Add(CurrentTable);
 
             UDataTable* HeadTable = GetObjectFromRevision<UDataTable>(GetHeadRevision(State.Get()));
             if (!CurrentTable) {
-                UE_LOG(LogTemp, Error, TEXT("Failed to load DataTable from file"));
-                return false;
+                IsSuccess = DoltResult::Failure;
+                OutMessage = FString::Printf(TEXT("Failed to load most recent revision for %s"), *DataTableName);
+                return;
             }
-            
-            // Get Current Branch Name
-            FString CurrentBranch;
 
-            Dolt.ExportDataTable(CurrentTable, "remote", CurrentBranch);
-            Dolt.ExportDataTable(DataTable, "local", "remote");
-            Dolt.ExportDataTable(HeadTable, "remote", "remote");
+            RemoteDataTables.Add(HeadTable);
         }
     }
-    return true;
+
+    Dolt->ExportDataTables(AncestorDataTables, "remote", "remote", IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+    Dolt->ExportDataTables(LocalDataTables, "local", "remote", IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+    Dolt->ExportDataTables(RemoteDataTables, "remote", "remote", IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+    
+    IsSuccess = DoltResult::Success;
+    return;
+}
+
+void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+    ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
+    if (!SourceControlProvider) {
+        OutMessage = TEXT("Failed to load Source Control Provider");
+        IsSuccess = DoltResult::Failure;
+        return;
+    }
+
+    DiffDataTable(Dolt, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    Dolt->Rebase({.From = "remote", .To = "local"}, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+    TArray<UDataTable*> DataTables;
+    for (UObject* Asset : Assets)
+    {
+        UDataTable* DataTable = Cast<UDataTable>(Asset);
+        if (DataTable)
+        {
+            DataTables.Add(DataTable);
+        }
+    }
+
+    for (UObject* DataTable : DataTables)
+    {
+        RevertAndSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
+        if (IsSuccess != DoltResult::Success) {
+            return;
+        }
+    }
+
+    Dolt->ImportDataTables(DataTables, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    IsSuccess = DoltResult::Success;
+    return;
 }
