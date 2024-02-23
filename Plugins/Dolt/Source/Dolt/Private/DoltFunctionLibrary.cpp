@@ -58,7 +58,7 @@ void UDoltFunctionLibrary::ImportDataTable(
     Dolt->ImportDataTables(GetSelectedAssetsOfType<UDataTable>(), IsSuccess, OutMessage);
 }
 
-void UDoltFunctionLibrary::DiffDataTable(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
@@ -114,7 +114,7 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, T
         return;
     }
 
-    DiffDataTable(Dolt, IsSuccess, OutMessage);
+    ThreeWayExport(Dolt, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }

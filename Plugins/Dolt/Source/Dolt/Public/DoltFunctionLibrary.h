@@ -65,7 +65,7 @@ public:
     static void ImportDataTable(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void DiffDataTable(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    static void ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
     static void RebaseOntoHeadRevision(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
