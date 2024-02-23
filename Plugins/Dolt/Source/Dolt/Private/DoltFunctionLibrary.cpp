@@ -27,16 +27,7 @@ void UDoltFunctionLibrary::ExportDataTable(
     TEnumAsByte<DoltResult::Type> &IsSuccess,
     FString &OutMessage)
 {
-    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
-    TArray<UDataTable*> DataTables;
-    for (UObject* Asset : Assets)
-    {
-        UDataTable* DataTable = Cast<UDataTable>(Asset);
-        if (DataTable)
-        {
-            DataTables.Add(DataTable);
-        }
-    }
+    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
 
     if (DataTables.Num() == 0) {
         DOLT_FAIL("No DataTables selected");
@@ -47,15 +38,26 @@ void UDoltFunctionLibrary::ExportDataTable(
         return;
     }
 
-    IsSuccess = DoltResult::Success;
-    return;
+    DOLT_SUCCEEDF("Exported %d DataTable(s) to dolt branch %s", DataTables.Num(), *BranchName);
 }
 
 void UDoltFunctionLibrary::ImportDataTable(
         const UDoltConnection* Dolt,
+        const FString &BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
-    Dolt->ImportDataTables(GetSelectedAssetsOfType<UDataTable>(), IsSuccess, OutMessage);
+    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
+
+    if (DataTables.Num() == 0) {
+        DOLT_FAIL("No DataTables selected");
+    }
+
+    Dolt->ImportDataTables(DataTables, BranchName, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    DOLT_SUCCEEDF("Imported %d DataTable(s) from dolt branch %s. You still need to save changes.", DataTables.Num(), *BranchName);
 }
 
 void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
@@ -106,12 +108,10 @@ void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsBy
     return;
 }
 
-void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
-        OutMessage = TEXT("Failed to load Source Control Provider");
-        IsSuccess = DoltResult::Failure;
-        return;
+        DOLT_FAIL("Failed to load Source Control Provider");
     }
 
     ThreeWayExport(Dolt, IsSuccess, OutMessage);
@@ -119,7 +119,7 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, T
         return;
     }
 
-    Dolt->Merge({.From = "remote", .To = "local"}, IsSuccess, OutMessage);
+    Dolt->Merge({.From = RemoteBranch, .To = LocalBranch}, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -143,7 +143,7 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, T
         }
     }
 
-    Dolt->ImportDataTables(DataTables, IsSuccess, OutMessage);
+    Dolt->ImportDataTables(DataTables, LocalBranch, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }

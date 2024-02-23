@@ -79,9 +79,15 @@ void UDoltConnection::ExportDataTables(
 
 void UDoltConnection::ImportDataTables(
         TArray<UDataTable*> DataTables,
+        FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
     const TCHAR* TempDir = FGenericPlatformProcess::UserTempDir();
+
+    CheckoutExistingBranch(BranchName, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
 
     for (UDataTable* DataTable : DataTables) {
         FString TableName = DataTable->GetName();
@@ -212,7 +218,7 @@ void UDoltConnection::Merge(MergeArgs Args,
         IsSuccess,
         OutMessage
     );
-}
+    }
 
 // This function does not work: Dolt doesn't support non-interactive rebase yet. 
 void UDoltConnection::Rebase(RebaseArgs Args,

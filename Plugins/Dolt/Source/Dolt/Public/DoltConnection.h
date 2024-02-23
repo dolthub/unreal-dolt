@@ -49,6 +49,7 @@ public:
 
     void ImportDataTables(
         TArray<UDataTable*> DataTables,
+        FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
