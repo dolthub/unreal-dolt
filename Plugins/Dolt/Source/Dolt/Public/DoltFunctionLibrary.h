@@ -35,6 +35,16 @@
     UE_LOG(LogTemp, Display, TEXT("%s"), *OutMessage);\
     return;
 
+#define DOLT_CHECK(Condition, Message) \
+    if (!(Condition)) {\
+        DOLT_FAIL(Message);\
+    }
+
+#define DOLT_CHECKF(Condition, Message, ...) \
+    if (!(Condition)) {\
+        DOLT_FAIL(Message, ##__VA_ARGS__);\
+    }
+
 template <typename T> TArray<T*> GetSelectedAssetsOfType() {
     TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
     TArray<T*> TypedAssets;
@@ -58,16 +68,23 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Dolt")
 	static const UDoltSettings* GetDoltProjectSettings();
 
-    UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
+    UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
 	static void ExportDataTable(const UDoltConnection* Dolt, const FString &BranchName, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
-    UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
+    UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
     static void ImportDataTable(const UDoltConnection* Dolt, const FString &BranchName, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
-    UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
+    UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
     static void ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
-    UFUNCTION(BlueprintCallable, Category = "Dolt", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void RebaseOntoHeadRevision(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    UFUNCTION(BlueprintCallable, Category = "Dolt|Pull Rebase", meta=(ExpandEnumAsExecs="IsSuccess"))
+    static void PullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
 
+    UFUNCTION(BlueprintCallable, Category = "Dolt|Pull Rebase", meta=(ExpandEnumAsExecs="IsSuccess"))
+    static void ResumePullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+
+    UFUNCTION(Exec)
+    static void DoltEcho(const TArray<FString>& Messages);
+
+    static FAutoConsoleCommand DoltEchoCommand;
 };

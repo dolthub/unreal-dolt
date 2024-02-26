@@ -6,6 +6,21 @@
 
 #include "CoreMinimal.h"
 
+void UDoltConnection::ExecuteCommand(FString Args) const {
+    FString StdOut, StdErr;
+    int32 OutReturnCode;
+    bool ProcessExecuted = FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args, &OutReturnCode, &StdOut, &StdErr, *DoltRepoPath.Path);
+    if (!ProcessExecuted) {
+        UE_LOG(LogTemp, Error, TEXT("Failed to execute command `dolt %s`. Make sure you have configured the Dolt plugin in \"Edit > Project Settings\""), *Args);
+    }
+    if (OutReturnCode != 0) {
+        UE_LOG(LogTemp, Error, TEXT("Dolt Output: \n%s"), *StdOut);
+        UE_LOG(LogTemp, Error, TEXT("Dolt Error: \n%s"), *StdErr);
+    } else {
+        UE_LOG(LogTemp, Display, TEXT("Dolt Output: \n%s"), *StdOut);
+    }
+}
+
 void UDoltConnection::ExecuteCommand(ExecuteCommandArgs Args, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) const {
     FString StdOut, StdErr;
     int32 OutReturnCode;
@@ -16,11 +31,11 @@ void UDoltConnection::ExecuteCommand(ExecuteCommandArgs Args, TEnumAsByte<DoltRe
     }
 
     if (OutReturnCode != 0) {
-        UE_LOG(LogTemp, Error, TEXT("Dolt Output: %s"), *StdOut);
-        UE_LOG(LogTemp, Error, TEXT("Dolt Error: %s"), *StdErr);
+        UE_LOG(LogTemp, Error, TEXT("Dolt Output: \n%s"), *StdOut);
+        UE_LOG(LogTemp, Error, TEXT("Dolt Error: \n%s"), *StdErr);
         DOLT_FAILF("%s: %s", *Args.FailureMessage, StdErr.IsEmpty() ? *StdOut : *StdErr);
     } else {
-        UE_LOG(LogTemp, Display, TEXT("Dolt Output: %s"), *StdOut);
+        UE_LOG(LogTemp, Display, TEXT("Dolt Output: \n%s"), *StdOut);
         DOLT_SUCCEED(*Args.SuccessMessage);
     }
 }
@@ -29,6 +44,7 @@ void UDoltConnection::ExportDataTables(
         TArray<UDataTable*> DataTables,
         FString BranchName,
         FString ParentBranchName,
+        FString CommitMessage,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const {
 
@@ -48,16 +64,14 @@ void UDoltConnection::ExportDataTables(
         }
     }
 
-    CheckoutExistingBranch(ParentBranchName, IsSuccess, OutMessage);
+    CreateOrResetBranch(BranchName, ParentBranchName, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
 
-    if (BranchName != ParentBranchName) {
-        CheckoutNewOrExistingBranch(BranchName, IsSuccess, OutMessage);
-        if (IsSuccess != DoltResult::Success) {
-            return;
-        }
+    CheckoutExistingBranch(BranchName, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
     }
 
     for (UDataTable* DataTable : DataTables) {
@@ -68,7 +82,7 @@ void UDoltConnection::ExportDataTables(
         }
     }
 
-    Commit(FString::Printf(TEXT("Imported from Unreal")), CommitOptions::SkipEmpty, IsSuccess, OutMessage);
+    Commit(CommitMessage, CommitOptions::SkipEmpty, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -124,6 +138,39 @@ void UDoltConnection::ImportDataTables(
     return;
 }
 
+void UDoltConnection::HardReset(
+        FString TargetBranch,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const {
+    ExecuteCommand(
+        {
+            .Command = FString::Printf(TEXT("reset --hard %s"), *TargetBranch),
+            .SuccessMessage = FString::Printf(TEXT("hard reset to %s"), *TargetBranch),
+            .FailureMessage = FString::Printf(TEXT("failed to hard reset to %s"), *TargetBranch),
+        },
+        IsSuccess,
+        OutMessage
+    );
+}
+
+void UDoltConnection::CreateOrResetBranch(
+        FString NewBranchName,
+        FString TargetBranchName,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const {
+    DOLT_CHECK(NewBranchName.Len() > 0, "Unexpected empty branch name");
+    DOLT_CHECK(TargetBranchName.Len() > 0, "Unexpected empty target branch name");
+    ExecuteCommand(
+        {
+            .Command = FString::Printf(TEXT("branch -f %s %s"), *NewBranchName, *TargetBranchName),
+            .SuccessMessage = FString::Printf(TEXT("set branch %s to %s"), *NewBranchName, *TargetBranchName),
+            .FailureMessage = FString::Printf(TEXT("failed to set branch %s to %s"), *NewBranchName, *TargetBranchName),
+        },
+        IsSuccess,
+        OutMessage
+    );
+}
+
 void UDoltConnection::CheckoutNewOrExistingBranch(
         FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
@@ -176,7 +223,7 @@ void UDoltConnection::ImportTableToDolt(
         FString &OutMessage) const {
     ExecuteCommand(
         {
-            .Command = FString::Printf(TEXT("table import -c -f %s \"%s\""), *TableName, *FilePath),
+            .Command = FString::Printf(TEXT("table import -c -f -pk \"---\" %s \"%s\""), *TableName, *FilePath),
             .SuccessMessage = FString::Printf(TEXT("imported table %s from %s"), *TableName, *FilePath),
             .FailureMessage = FString::Printf(TEXT("failed to import table %s from %s"), *TableName, *FilePath)
         },
@@ -218,7 +265,7 @@ void UDoltConnection::Merge(MergeArgs Args,
         IsSuccess,
         OutMessage
     );
-    }
+}
 
 // This function does not work: Dolt doesn't support non-interactive rebase yet. 
 void UDoltConnection::Rebase(RebaseArgs Args,
@@ -237,4 +284,29 @@ void UDoltConnection::Rebase(RebaseArgs Args,
         IsSuccess,
         OutMessage
     );
+}
+
+bool UDoltConnection::IsMerging(
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const {
+    FString StdOut, StdErr;
+    int32 OutReturnCode;
+    FString Command = "sql -q \"select is_merging from dolt_merge_status;\" -r json";
+    UE_LOG(LogTemp, Display, TEXT("Executing dolt %s"), *Command);
+    bool ProcessExecuted = FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Command, &OutReturnCode, &StdOut, &StdErr, *DoltRepoPath.Path);
+    if (!ProcessExecuted) {
+        IsSuccess = DoltResult::Failure;
+        OutMessage = FString::Printf(TEXT("Failed to execute command `dolt %s`. Make sure you have configured the Dolt plugin in \"Edit > Project Settings\""), *Command);
+        return false;
+    }
+
+    if (OutReturnCode != 0) {
+        UE_LOG(LogTemp, Error, TEXT("Dolt Output: \n%s"), *StdOut);
+        UE_LOG(LogTemp, Error, TEXT("Dolt Error: \n%s"), *StdErr);
+        IsSuccess = DoltResult::Failure;
+        return false;
+    } else {
+        UE_LOG(LogTemp, Display, TEXT("Dolt Output: \n%s"), *StdOut);
+        return StdOut.Contains("true");
+    }
 }

@@ -33,7 +33,7 @@ void UDoltFunctionLibrary::ExportDataTable(
         DOLT_FAIL("No DataTables selected");
     }
 
-    Dolt->ExportDataTables(DataTables, BranchName, BranchName, IsSuccess, OutMessage);
+    Dolt->ExportDataTables(DataTables, BranchName, BranchName, "Exported from Unreal", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -61,6 +61,7 @@ void UDoltFunctionLibrary::ImportDataTable(
 }
 
 void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+    UE_LOG(LogTemp, Display, TEXT("Beginning Three Way Export Operation"));
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
@@ -91,24 +92,24 @@ void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsBy
         RemoteDataTables.Add(HeadTable);
     }
 
-    Dolt->ExportDataTables(AncestorDataTables, "remote", "remote", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(AncestorDataTables, "remote", "HEAD", "Ancestor Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-    Dolt->ExportDataTables(LocalDataTables, "local", "remote", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(LocalDataTables, "local", "remote", "Local Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-    Dolt->ExportDataTables(RemoteDataTables, "remote", "remote", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(RemoteDataTables, "remote", "remote", "Remote Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
     
-    IsSuccess = DoltResult::Success;
-    return;
+    DOLT_SUCCEED("Three Way Export Completed");
 }
 
-void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::PullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+    UE_LOG(LogTemp, Display, TEXT("Beginning Pull Rebase Operation"));
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
@@ -124,16 +125,7 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, F
         return;
     }
 
-    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
-    TArray<UDataTable*> DataTables;
-    for (UObject* Asset : Assets)
-    {
-        UDataTable* DataTable = Cast<UDataTable>(Asset);
-        if (DataTable)
-        {
-            DataTables.Add(DataTable);
-        }
-    }
+    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
 
     for (UObject* DataTable : DataTables)
     {
@@ -148,6 +140,64 @@ void UDoltFunctionLibrary::RebaseOntoHeadRevision(const UDoltConnection* Dolt, F
         return;
     }
 
-    IsSuccess = DoltResult::Success;
-    return;
+    DOLT_SUCCEED("Pull Rebase Completed. You still need to save changes.");
 }
+
+void UDoltFunctionLibrary::ResumePullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+    ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
+    if (!SourceControlProvider) {
+        DOLT_FAIL("Failed to load Source Control Provider");
+    }
+    
+    // If there's a merge in progress, we need to finish it before we can continue
+    // Otherwise, we either didn't merge or finished the merge, in which case merging again should be safe.
+    bool IsMerging = Dolt->IsMerging(IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    if (IsMerging) {
+        Dolt->Commit("Resolve Merge", CommitOptions::SkipEmpty, IsSuccess, OutMessage);
+        if (IsSuccess != DoltResult::Success) {
+            return;
+        }
+    }
+
+    Dolt->Merge({.From = RemoteBranch, .To = LocalBranch}, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+    
+    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
+
+    for (UObject* DataTable : DataTables)
+    {
+        RevertAndSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
+        if (IsSuccess != DoltResult::Success) {
+            return;
+        }
+    }
+
+    Dolt->ImportDataTables(DataTables, LocalBranch, IsSuccess, OutMessage);
+    if (IsSuccess != DoltResult::Success) {
+        return;
+    }
+
+    DOLT_SUCCEED("Force Sync and Import Completed. You still need to save changes.");
+}
+
+void UDoltFunctionLibrary::DoltEcho(const TArray<FString>& Messages) {
+    FString Message;
+    for (FString Msg : Messages) {
+        Message += " " + Msg;
+    }
+    const UDoltSettings* DoltSettings = GetDefault<UDoltSettings>();
+    const UDoltConnection* Dolt = UDoltConnection::ConnectToDolt(DoltSettings->DoltBinPath, DoltSettings->DoltRepoPath);
+    Dolt->ExecuteCommand(Message);
+}
+
+FAutoConsoleCommand UDoltFunctionLibrary::DoltEchoCommand = FAutoConsoleCommand(
+    TEXT("dolt"),
+    TEXT("dolt"),
+    FConsoleCommandWithArgsDelegate::CreateStatic(&UDoltFunctionLibrary::DoltEcho)
+);

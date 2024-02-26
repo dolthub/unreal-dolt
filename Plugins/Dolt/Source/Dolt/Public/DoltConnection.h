@@ -31,6 +31,8 @@ public:
         return Result;
     }
 
+    void ExecuteCommand(FString Args) const;
+
     struct ExecuteCommandArgs {
         FString Command, SuccessMessage, FailureMessage;
     };
@@ -44,6 +46,7 @@ public:
         TArray<UDataTable*> DataTable,
         FString BranchName,
         FString ParentBranchName,
+        FString CommitMessage,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
@@ -71,6 +74,10 @@ public:
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
+    bool IsMerging(
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
 private:
 
     void CheckoutNewBranch(
@@ -88,14 +95,26 @@ private:
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
+    void CreateOrResetBranch(
+        FString BranchName,
+        FString Target,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
     void ImportTableToDolt(
         FString TableName,
         FString FilePath,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
     
-    void Commit(FString Message,
+    void Commit(
+        FString Message,
         CommitOptions Options,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
+    void HardReset(
+        FString TargetBranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 };

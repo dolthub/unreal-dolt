@@ -31,7 +31,7 @@ ISourceControlProvider* GetSourceControlProvider() {
     }
 
     ISourceControlProvider& SourceControlProvider = SourceControlModule.GetProvider();
-    UE_LOG(LogTemp, Error, TEXT("Loaded Source Control Provider: %s"), *SourceControlProvider.GetName().ToString());
+    UE_LOG(LogTemp, Display, TEXT("Loaded Source Control Provider: %s"), *SourceControlProvider.GetName().ToString());
     if (!SourceControlProvider.IsAvailable()) {
         UE_LOG(LogTemp, Error, TEXT("Source Control is not available"));
         return nullptr;
@@ -41,21 +41,21 @@ ISourceControlProvider* GetSourceControlProvider() {
 }
 
 TSharedPtr< ISourceControlState, ESPMode::ThreadSafe > GetStateWithHistory(ISourceControlProvider& SourceControlProvider, UPackage *Package) {
-    UE_LOG(LogTemp, Error, TEXT("Package Name: %s"), *Package->GetName());
-    UE_LOG(LogTemp, Error, TEXT("Package FileName: %s"), *Package->GetLoadedPath().GetLocalFullPath());
+    UE_LOG(LogTemp, Display, TEXT("Package Name: %s"), *Package->GetName());
+    UE_LOG(LogTemp, Display, TEXT("Package FileName: %s"), *Package->GetLoadedPath().GetLocalFullPath());
     auto UpdateStatusCommand = ISourceControlOperation::Create<FUpdateStatus>();
     UpdateStatusCommand->SetUpdateHistory(true);
     FString Filename = USourceControlHelpers::PackageFilename(Package);
 
     TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
 
-    UE_LOG(LogTemp, Error, TEXT("Calling Update on: %s"), *Filename);
+    UE_LOG(LogTemp, Display, TEXT("Calling Update on: %s"), *Filename);
     SourceControlProvider.Execute(UpdateStatusCommand, { Filename });
     auto State = SourceControlProvider.GetState(Package, EStateCacheUsage::ForceUpdate);
-    UE_LOG(LogTemp, Error, TEXT("Version Control Filename: %s"), *State->GetFilename());
-    UE_LOG(LogTemp, Error, TEXT("Version Control Displayname: %s"), *State->GetDisplayName().ToString());
-    UE_LOG(LogTemp, Error, TEXT("Version Control IsCurrent: %d"), State->IsCurrent());
-    UE_LOG(LogTemp, Error, TEXT("Version Control IsSourceControlled: %d"), State->IsSourceControlled());
+    UE_LOG(LogTemp, Display, TEXT("Version Control Filename: %s"), *State->GetFilename());
+    UE_LOG(LogTemp, Display, TEXT("Version Control Displayname: %s"), *State->GetDisplayName().ToString());
+    UE_LOG(LogTemp, Display, TEXT("Version Control IsCurrent: %d"), State->IsCurrent());
+    UE_LOG(LogTemp, Display, TEXT("Version Control IsSourceControlled: %d"), State->IsSourceControlled());
     return State;
 }
 
