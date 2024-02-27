@@ -78,6 +78,12 @@ public:
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
+    void Commit(
+        FString Message,
+        CommitOptions Options,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) const;
+
 private:
 
     void CheckoutNewBranch(
@@ -104,12 +110,6 @@ private:
     void ImportTableToDolt(
         FString TableName,
         FString FilePath,
-        TEnumAsByte<DoltResult::Type> &IsSuccess,
-        FString &OutMessage) const;
-    
-    void Commit(
-        FString Message,
-        CommitOptions Options,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) const;
 
