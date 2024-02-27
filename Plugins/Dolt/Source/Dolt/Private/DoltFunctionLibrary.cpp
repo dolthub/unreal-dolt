@@ -129,7 +129,7 @@ void UDoltFunctionLibrary::PullRebase(const UDoltConnection* Dolt, FString Local
 
     for (UObject* DataTable : DataTables)
     {
-        RevertAndSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
+        ForceSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
         if (IsSuccess != DoltResult::Success) {
             return;
         }
@@ -172,7 +172,7 @@ void UDoltFunctionLibrary::ResumePullRebase(const UDoltConnection* Dolt, FString
 
     for (UObject* DataTable : DataTables)
     {
-        RevertAndSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
+        ForceSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
         if (IsSuccess != DoltResult::Success) {
             return;
         }
