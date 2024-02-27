@@ -60,15 +60,6 @@ FSourceControlStatePtr GetStateWithHistory(ISourceControlProvider& SourceControl
     return State;
 }
 
-void RevertAndSync(ISourceControlProvider& SourceControlProvider, UPackage *Package, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutErrorMessage) {
-    auto RevertCommand = ISourceControlOperation::Create<FRevert>();
-    auto SyncCommand = ISourceControlOperation::Create<FSync>();
-    FString Filename = USourceControlHelpers::PackageFilename(Package);
-    TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
-    SourceControlProvider.Execute(RevertCommand, InFiles);
-    SourceControlProvider.Execute(SyncCommand, InFiles);
-}
-
 void ForceSync(ISourceControlProvider& SourceControlProvider, UPackage *Package, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage) {
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 

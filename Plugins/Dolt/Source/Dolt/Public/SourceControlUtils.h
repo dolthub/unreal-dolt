@@ -40,6 +40,4 @@ T* GetObjectFromRevision(FSourceControlRevisionPtr Revision) {
 
 FString AbsoluteFilename(FString FileName);
 
-void RevertAndSync(ISourceControlProvider& SourceControlProvider, UPackage *Package, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutErrorMessage);
-
 void ForceSync(ISourceControlProvider& SourceControlProvider, UPackage *Package, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutErrorMessage);
