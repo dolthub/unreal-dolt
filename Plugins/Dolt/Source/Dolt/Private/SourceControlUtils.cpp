@@ -5,8 +5,9 @@
 #include "ISourceControlRevision.h"
 #include "ISourceControlModule.h"
 #include "SourceControlOperations.h"
-
 #include "SourceControlHelpers.h"
+
+#include "./DoltFunctionLibrary.h"
 
 TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> GetHeadRevision(ISourceControlState *State) {
     int32 HistorySize = State->GetHistorySize();
@@ -40,7 +41,7 @@ ISourceControlProvider* GetSourceControlProvider() {
     return &SourceControlProvider;
 }
 
-TSharedPtr< ISourceControlState, ESPMode::ThreadSafe > GetStateWithHistory(ISourceControlProvider& SourceControlProvider, UPackage *Package) {
+FSourceControlStatePtr GetStateWithHistory(ISourceControlProvider& SourceControlProvider, UPackage *Package) {
     UE_LOG(LogTemp, Display, TEXT("Package Name: %s"), *Package->GetName());
     UE_LOG(LogTemp, Display, TEXT("Package FileName: %s"), *Package->GetLoadedPath().GetLocalFullPath());
     auto UpdateStatusCommand = ISourceControlOperation::Create<FUpdateStatus>();
@@ -66,6 +67,33 @@ void RevertAndSync(ISourceControlProvider& SourceControlProvider, UPackage *Pack
     TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
     SourceControlProvider.Execute(RevertCommand, InFiles);
     SourceControlProvider.Execute(SyncCommand, InFiles);
+}
+
+void ForceSync(ISourceControlProvider& SourceControlProvider, UPackage *Package, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage) {
+	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+    FSourceControlStatePtr State = GetStateWithHistory(SourceControlProvider, Package);
+
+	FString Filename = SourceControlHelpers::PackageFilename(Package);
+
+    TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
+
+	FSourceControlStatePtr SourceControlState = GetStateWithHistory(SourceControlProvider, Package);
+
+	TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> Revision = GetHeadRevision(SourceControlState.Get());
+    if (!Revision.IsValid()) {
+        DOLT_FAILF("Failed to get current revision for package %s", *Package->GetName());
+    }
+	
+    TSharedRef<FSync, ESPMode::ThreadSafe> SyncOperation = ISourceControlOperation::Create<FSync>();
+	SyncOperation->SetRevision(Revision->GetRevision());
+	SyncOperation->SetForce(true);
+	if (SourceControlProvider.Execute(SyncOperation, Filename) == ECommandResult::Succeeded)
+	{
+        PlatformFile.SetReadOnly(*Filename, true);
+    }
+
+    DOLT_SUCCEEDF("Synced %s to revision %s.", *Filename, *Revision->GetRevision());
 }
 
 UObject* GetUObjectFromRevision(ISourceControlRevision* Revision) {
