@@ -1,0 +1,18 @@
+services:
+  perforce:
+    image: sourcegraph/helix-p4d
+    ports:
+      - 1666:1666
+    networks:
+      - unreal-dolt
+  unreal:
+    build:
+      context: .
+      dockerfile: ./Docker/UE5.Dockerfile
+      args:
+        UNREAL_VERSION: 5.3
+    restart: always
+    networks:
+      - unreal-dolt
+networks:
+  unreal-dolt:
