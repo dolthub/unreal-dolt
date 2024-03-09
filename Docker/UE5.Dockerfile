@@ -5,6 +5,8 @@ FROM ghcr.io/epicgames/unreal-engine:dev-5.3
 COPY --from=dolt /usr/local/bin/dolt /usr/local/bin/dolt
 
 RUN mkdir /home/ue4/dolt
+RUN dolt config --global --add user.email "you@example.com"
+RUN dolt config --global --add user.name "Your Name"
 
 RUN mkdir /home/ue4/UnrealEngine/DoltPlugin
 RUN chmod 777 /home/ue4/UnrealEngine/DoltPlugin
