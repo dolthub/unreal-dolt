@@ -1,11 +1,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "EditorUtilityLibrary.h"
-#include "AssetActionUtility.h"
 #include "DoltSettings.h"
 #include "Engine/EngineTypes.h"
 #include "ISourceControlProvider.h"
+#include "HAL/IConsoleManager.h"
 
 #include "./Result.h"
 
@@ -45,8 +44,7 @@
         DOLT_FAIL(Message, ##__VA_ARGS__);\
     }
 
-template <typename T> TArray<T*> GetSelectedAssetsOfType() {
-    TArray<UObject*> Assets = UEditorUtilityLibrary::GetSelectedAssets();
+template <typename T> TArray<T*> GetObjectsOfType(const TArray<UObject*> &Assets) {
     TArray<T*> TypedAssets;
     for (UObject* Asset : Assets)
     {
@@ -69,19 +67,47 @@ public:
 	static const UDoltSettings* GetDoltProjectSettings();
 
     UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
-	static void ExportDataTable(const UDoltConnection* Dolt, const FString &BranchName, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+	static void ExportDataTable(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTables,
+        const FString &BranchName,
+        TEnumAsByte<DoltResult::Type>& IsSuccess,
+        FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void ImportDataTable(const UDoltConnection* Dolt, const FString &BranchName, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    static void ImportDataTable(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTables,
+        const FString &BranchName,
+        TEnumAsByte<DoltResult::Type>& IsSuccess,
+        FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt|Import/Export", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    static void ThreeWayExport(
+        const UDoltConnection* Dolt,
+        const FString LocalBranch,
+        const FString RemoteBranch,
+        const TArray<UObject*> &DataTables,
+        TEnumAsByte<DoltResult::Type>& IsSuccess,
+        FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt|Pull Rebase", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void PullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    static void PullRebase(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTables,
+        FString LocalBranch,
+        FString RemoteBranch,
+        TEnumAsByte<DoltResult::Type>& IsSuccess,
+        FString &OutMessage);
 
     UFUNCTION(BlueprintCallable, Category = "Dolt|Pull Rebase", meta=(ExpandEnumAsExecs="IsSuccess"))
-    static void ResumePullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type>& IsSuccess, FString &OutMessage);
+    static void ResumePullRebase(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTables,
+        FString LocalBranch,
+        FString RemoteBranch,
+        TEnumAsByte<DoltResult::Type>& IsSuccess,
+        FString &OutMessage);
 
     UFUNCTION(Exec)
     static void DoltEcho(const TArray<FString>& Messages);

@@ -4,13 +4,11 @@
 #include "DoltFunctionLibrary.h"
 
 #include "CoreMinimal.h"
-#include "EditorUtilityLibrary.h"
 #include "HAL/PlatformProcess.h"
 #include "ISourceControlModule.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlRevision.h"
 #include "SourceControlOperations.h"
-#include "EditorAssetLibrary.h"
 #include "UObject/ObjectMacros.h"
 
 #include "./DoltConnection.h"
@@ -21,14 +19,15 @@ const UDoltSettings* UDoltFunctionLibrary::GetDoltProjectSettings() {
     return GetDefault<UDoltSettings>();
 }
 
+
 void UDoltFunctionLibrary::ExportDataTable(
     const UDoltConnection *Dolt,
+    const TArray<UObject*> &DataTableObjects,
     const FString &BranchName,
     TEnumAsByte<DoltResult::Type> &IsSuccess,
     FString &OutMessage)
 {
-    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
-
+    TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     if (DataTables.Num() == 0) {
         DOLT_FAIL("No DataTables selected");
     }
@@ -43,11 +42,11 @@ void UDoltFunctionLibrary::ExportDataTable(
 
 void UDoltFunctionLibrary::ImportDataTable(
         const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTableObjects,
         const FString &BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
-    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
-
+    TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     if (DataTables.Num() == 0) {
         DOLT_FAIL("No DataTables selected");
     }
@@ -60,13 +59,19 @@ void UDoltFunctionLibrary::ImportDataTable(
     DOLT_SUCCEEDF("Imported %d DataTable(s) from dolt branch %s. You still need to save changes.", DataTables.Num(), *BranchName);
 }
 
-void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::ThreeWayExport(
+        const UDoltConnection* Dolt,
+        FString LocalBranch,
+        FString RemoteBranch,
+        const TArray<UObject*> &DataTableObjects,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) {
     UE_LOG(LogTemp, Display, TEXT("Beginning Three Way Export Operation"));
+    TArray<UDataTable*> LocalDataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
     }
-    TArray<UDataTable*> LocalDataTables = GetSelectedAssetsOfType<UDataTable>();
     TArray<UDataTable*> RemoteDataTables;
     TArray<UDataTable*> AncestorDataTables;
 
@@ -92,15 +97,15 @@ void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsBy
         RemoteDataTables.Add(HeadTable);
     }
 
-    Dolt->ExportDataTables(AncestorDataTables, "remote", "HEAD", "Ancestor Commit", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(AncestorDataTables, RemoteBranch, "HEAD", "Ancestor Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-    Dolt->ExportDataTables(LocalDataTables, "local", "remote", "Local Commit", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(LocalDataTables, LocalBranch, RemoteBranch, "Local Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-    Dolt->ExportDataTables(RemoteDataTables, "remote", "remote", "Remote Commit", IsSuccess, OutMessage);
+    Dolt->ExportDataTables(RemoteDataTables, RemoteBranch, RemoteBranch, "Remote Commit", IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -108,14 +113,21 @@ void UDoltFunctionLibrary::ThreeWayExport(const UDoltConnection* Dolt, TEnumAsBy
     DOLT_SUCCEED("Three Way Export Completed");
 }
 
-void UDoltFunctionLibrary::PullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::PullRebase(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTableObjects,
+        FString LocalBranch,
+        FString RemoteBranch,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) {
+    TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     UE_LOG(LogTemp, Display, TEXT("Beginning Pull Rebase Operation"));
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
     }
 
-    ThreeWayExport(Dolt, IsSuccess, OutMessage);
+    ThreeWayExport(Dolt, LocalBranch, RemoteBranch, DataTableObjects, IsSuccess, OutMessage);
     if (IsSuccess != DoltResult::Success) {
         return;
     }
@@ -124,8 +136,6 @@ void UDoltFunctionLibrary::PullRebase(const UDoltConnection* Dolt, FString Local
     if (IsSuccess != DoltResult::Success) {
         return;
     }
-
-    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
 
     for (UObject* DataTable : DataTables)
     {
@@ -143,7 +153,14 @@ void UDoltFunctionLibrary::PullRebase(const UDoltConnection* Dolt, FString Local
     DOLT_SUCCEED("Pull Rebase Completed. You still need to save changes.");
 }
 
-void UDoltFunctionLibrary::ResumePullRebase(const UDoltConnection* Dolt, FString LocalBranch, FString RemoteBranch, TEnumAsByte<DoltResult::Type> &IsSuccess, FString &OutMessage) {
+void UDoltFunctionLibrary::ResumePullRebase(
+        const UDoltConnection* Dolt,
+        const TArray<UObject*> &DataTableObjects,
+        FString LocalBranch,
+        FString RemoteBranch,
+        TEnumAsByte<DoltResult::Type> &IsSuccess,
+        FString &OutMessage) {
+    TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
         DOLT_FAIL("Failed to load Source Control Provider");
@@ -168,8 +185,6 @@ void UDoltFunctionLibrary::ResumePullRebase(const UDoltConnection* Dolt, FString
         return;
     }
     
-    TArray<UDataTable*> DataTables = GetSelectedAssetsOfType<UDataTable>();
-
     for (UObject* DataTable : DataTables)
     {
         ForceSync(*SourceControlProvider, DataTable->GetPackage(), IsSuccess, OutMessage);
@@ -193,7 +208,17 @@ void UDoltFunctionLibrary::DoltEcho(const TArray<FString>& Messages) {
     }
     const UDoltSettings* DoltSettings = GetDefault<UDoltSettings>();
     const UDoltConnection* Dolt = UDoltConnection::ConnectToDolt(DoltSettings->DoltBinPath, DoltSettings->DoltRepoPath);
-    Dolt->ExecuteCommand(Message);
+    TEnumAsByte<DoltResult::Type> IsSuccess;
+    FString OutMessage;
+    Dolt->ExecuteCommand(
+            {
+                .Command = Message,
+                .SuccessMessage = FString::Printf(TEXT("")),
+                .FailureMessage = FString::Printf(TEXT("")),
+            },
+            IsSuccess,
+            OutMessage
+        );
 }
 
 FAutoConsoleCommand UDoltFunctionLibrary::DoltEchoCommand = FAutoConsoleCommand(

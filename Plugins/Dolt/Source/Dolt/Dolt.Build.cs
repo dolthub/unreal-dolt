@@ -7,11 +7,10 @@ public class Dolt : ModuleRules
 	public Dolt(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "DeveloperSettings" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] {"Blutility", "EditorScriptingUtilities", "SourceControl"});
-		PrivateIncludePaths.AddRange(new string[] { System.IO.Path.GetFullPath(Target.RelativeEnginePath) + "Source/Editor/Blutility/Private" });
+		PublicDependencyModuleNames.AddRange(new string[] { "ApplicationCore", "Blutility", "Core", "CoreUObject", "Engine", "InputCore", "DeveloperSettings" });
+
+		PrivateDependencyModuleNames.AddRange(new string[] { "ApplicationCore", "Blutility", "SourceControl"});
 		
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]

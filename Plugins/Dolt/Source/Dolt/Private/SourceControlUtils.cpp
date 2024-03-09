@@ -4,8 +4,11 @@
 #include "ISourceControlProvider.h"
 #include "ISourceControlRevision.h"
 #include "ISourceControlModule.h"
+#include "HAL/PlatformFileManager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
 #include "SourceControlOperations.h"
 #include "SourceControlHelpers.h"
+#include "Misc/Paths.h"
 
 #include "./DoltFunctionLibrary.h"
 
