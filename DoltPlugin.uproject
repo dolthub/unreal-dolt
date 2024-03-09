@@ -12,11 +12,11 @@
 	],
 	"Plugins": [
 		{
-			"Name": "ModelingToolsEditorMode",
+			"Name": "Dolt",
 			"Enabled": true,
 			"TargetAllowList": [
 				"Editor"
 			]
-		}
+		},
 	]
 }
