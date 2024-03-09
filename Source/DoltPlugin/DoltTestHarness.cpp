@@ -4,7 +4,8 @@
 #include "DoltFunctionLibrary.h"
 
 const TArray<FDoltTestCase> UDoltTestHarness::TestCases = {
-    FDoltTestCase::Create("Simple Test", UDoltTestHarness::SampleTest)
+    FDoltTestCase::Create("Simple Test", UDoltTestHarness::SampleTest),
+    FDoltTestCase::Create("Test Rebase Onto Head", UDoltTestHarness::TestRebaseOntoHead)
 };
 
 void UDoltTestHarness::RunAllTests(const TArray<FString>& Messages) {
@@ -27,16 +28,15 @@ bool UDoltTestHarness::RunTest(const FDoltTestCase Test) {
 }
 
 bool UDoltTestHarness::TestRebaseOntoHead() {
-    FFilePath DoltBinPath = {TEXT("C:/Program Files/Dolt/dolt.exe")};
-    FDirectoryPath DoltRepoPath = {TEXT("C:/Users/username/Documents/Unreal Projects/MyProject/DoltRepo")};
-    UDoltConnection* Dolt = UDoltConnection::ConnectToDolt(DoltBinPath, DoltRepoPath);
+    const UDoltSettings *Settings = UDoltFunctionLibrary::GetDoltProjectSettings();
+    UDoltConnection* Dolt = UDoltConnection::ConnectToDolt(Settings->DoltBinPath, Settings->DoltRepoPath);
     UDataTable* TestTable = LoadObject<UDataTable>(nullptr, TEXT("/Game/MyProject/MyDataTable"));
     TEnumAsByte<DoltResult::Type> IsSuccess;
     FString OutMessage;
     UDoltFunctionLibrary::PullRebase(Dolt,
         {TestTable},
-        "local",
-        "remote",
+        Settings->LocalBranchName,
+        Settings->RemoteBranchName,
         IsSuccess,
         OutMessage);
     return true;
