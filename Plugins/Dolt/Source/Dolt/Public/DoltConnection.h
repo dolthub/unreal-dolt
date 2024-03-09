@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/DataTable.h"
 
 #include "./DoltSettings.h"
 #include "./Result.h"
@@ -14,7 +15,7 @@ enum class CommitOptions : uint8 {
 ENUM_CLASS_FLAGS(CommitOptions);
 
 UCLASS()
-class UDoltConnection : public UObject {
+class DOLT_API UDoltConnection : public UObject {
     GENERATED_BODY()
 
 public:
@@ -28,8 +29,11 @@ public:
         UDoltConnection* Result = NewObject<UDoltConnection>();
         Result->DoltBinPath = DoltBinPath;
         Result->DoltRepoPath = DoltRepoPath;
+        Result->MaybeInitDolt("local", "remote");
         return Result;
     }
+
+    void MaybeInitDolt(FString LocalBranch, FString RemoteBranch) const;
 
     void ExecuteCommand(FString Args) const;
 

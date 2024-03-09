@@ -1,10 +1,22 @@
 
 #include "DoltConnection.h"
+#include "Engine/DataTable.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 
 #include "./Result.h"
 #include "./DoltFunctionLibrary.h"
 
 #include "CoreMinimal.h"
+
+void UDoltConnection::MaybeInitDolt(FString LocalBranch, FString RemoteBranch) const {
+    bool DoltDirExists = FPaths::DirectoryExists(FPaths::Combine(*DoltRepoPath.Path, ".dolt"));
+    if (!DoltDirExists) {
+        ExecuteCommand("init");
+        ExecuteCommand("branch " + LocalBranch);
+        ExecuteCommand("branch " + RemoteBranch);
+    }
+}
 
 void UDoltConnection::ExecuteCommand(FString Args) const {
     FString StdOut, StdErr;
@@ -25,11 +37,33 @@ void UDoltConnection::ExecuteCommand(ExecuteCommandArgs Args, TEnumAsByte<DoltRe
     FString StdOut, StdErr;
     int32 OutReturnCode;
     UE_LOG(LogTemp, Display, TEXT("Executing dolt %s"), *Args.Command);
-    bool ProcessExecuted = FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args.Command, &OutReturnCode, &StdOut, &StdErr, *DoltRepoPath.Path);
-    if (!ProcessExecuted) {
-        DOLT_FAILF("Failed to execute command `dolt %s`. Make sure you have configured the Dolt plugin in \"Edit > Project Settings\"", *Args.Command);
+
+    // bool ProcessExecuted = FPlatformProcess::ExecProcess(*DoltBinPath.FilePath, *Args.Command, &OutReturnCode, &StdOut, &StdErr, *DoltRepoPath.Path);
+    void *StdOutPipeRead = nullptr;
+    void *StdOutPipeWrite = nullptr;
+    bool PipeCreated = FPlatformProcess::CreatePipe(StdOutPipeRead, StdOutPipeWrite, false);
+    if (!PipeCreated) {
+        DOLT_FAIL("Failed to create pipe for stdout");
     }
 
+    void *StdInPipeRead = nullptr;
+    void *StdInPipeWrite = nullptr;
+    PipeCreated = FPlatformProcess::CreatePipe(StdInPipeRead, StdInPipeWrite, true);
+    if (!PipeCreated) {
+        DOLT_FAIL("Failed to create pipe for stdin");
+    }
+
+    FProcHandle CommandProc = FPlatformProcess::CreateProc(*DoltBinPath.FilePath, *Args.Command, false, false, false, nullptr, 0, *DoltRepoPath.Path, StdOutPipeWrite);
+    /*if (!ProcessExecuted) {
+        DOLT_FAILF("Failed to execute command `dolt %s`. Make sure you have configured the Dolt plugin in \"Edit > Project Settings\"", *Args.Command);
+    }*/
+
+    FPlatformProcess::ClosePipe(StdInPipeRead, StdInPipeWrite);
+    FPlatformProcess::WaitForProc(CommandProc);
+
+    FPlatformProcess::GetProcReturnCode(CommandProc, &OutReturnCode);
+
+    StdOut = FPlatformProcess::ReadPipe(StdOutPipeRead);
     if (OutReturnCode != 0) {
         UE_LOG(LogTemp, Error, TEXT("Dolt Output: \n%s"), *StdOut);
         UE_LOG(LogTemp, Error, TEXT("Dolt Error: \n%s"), *StdErr);
