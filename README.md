@@ -12,6 +12,8 @@ This is a proof of concept. Play around with it, file issues, but don't use it f
 
 Simple download the source code and copy the `Plugins` directory into your Unreal project. The next time you open the project in the editor, you will be asked if you want to compile the plugin.
 
+Most of our testing was performed on Unreal 5.3, on MacOS and Linux, with Perforce as the main VCS. But in theory this plugin should work for other versions of Unreal, and with every OS and VCS that Unreal Editor supports. If you encounter problems with your configuration, please file an [issue](https://github.com/dolthub/unreal-dolt/issues).
+
 ## How to Use
 
 After installing, configure the plugin via `Edit > Project Settings`
