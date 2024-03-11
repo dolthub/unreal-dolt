@@ -14,11 +14,9 @@
 
 TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> GetHeadRevision(ISourceControlState *State) {
     int32 HistorySize = State->GetHistorySize();
-    UE_LOG(LogTemp, Error, TEXT("Found %d Revisions"), HistorySize);
     TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> HeadRevision;
     for (int32 i = 0; i < HistorySize; i++) {
         TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> Revision = State->GetHistoryItem(i);
-        UE_LOG(LogTemp, Error, TEXT("Found revision %d"), Revision->GetRevisionNumber());
         if (HeadRevision == nullptr || Revision->GetRevisionNumber() > HeadRevision->GetRevisionNumber()) {
             HeadRevision = Revision;
         }
@@ -45,21 +43,14 @@ ISourceControlProvider* GetSourceControlProvider() {
 }
 
 FSourceControlStatePtr GetStateWithHistory(ISourceControlProvider& SourceControlProvider, UPackage *Package) {
-    UE_LOG(LogTemp, Display, TEXT("Package Name: %s"), *Package->GetName());
-    UE_LOG(LogTemp, Display, TEXT("Package FileName: %s"), *Package->GetLoadedPath().GetLocalFullPath());
     auto UpdateStatusCommand = ISourceControlOperation::Create<FUpdateStatus>();
     UpdateStatusCommand->SetUpdateHistory(true);
     FString Filename = USourceControlHelpers::PackageFilename(Package);
 
     TArray<FString> InFiles = USourceControlHelpers::AbsoluteFilenames({Filename});
 
-    UE_LOG(LogTemp, Display, TEXT("Calling Update on: %s"), *Filename);
     SourceControlProvider.Execute(UpdateStatusCommand, { Filename });
     auto State = SourceControlProvider.GetState(Package, EStateCacheUsage::ForceUpdate);
-    UE_LOG(LogTemp, Display, TEXT("Version Control Filename: %s"), *State->GetFilename());
-    UE_LOG(LogTemp, Display, TEXT("Version Control Displayname: %s"), *State->GetDisplayName().ToString());
-    UE_LOG(LogTemp, Display, TEXT("Version Control IsCurrent: %d"), State->IsCurrent());
-    UE_LOG(LogTemp, Display, TEXT("Version Control IsSourceControlled: %d"), State->IsSourceControlled());
     return State;
 }
 
@@ -93,14 +84,12 @@ void ForceSync(ISourceControlProvider& SourceControlProvider, UPackage *Package,
 UObject* GetUObjectFromRevision(ISourceControlRevision* Revision) {
     FString DownloadedFilePath;
     Revision->Get(DownloadedFilePath, EConcurrency::Synchronous);
-    UE_LOG(LogTemp, Error, TEXT("Current temp filename: %s"), *DownloadedFilePath);
 
     UPackage* CurrentPackage = LoadPackage(nullptr, *DownloadedFilePath, LOAD_ForDiff | LOAD_DisableCompileOnLoad);
     if (!CurrentPackage) {
         UE_LOG(LogTemp, Error, TEXT("Failed to load package from file"));
         return nullptr;
     }
-    UE_LOG(LogTemp, Error, TEXT("Loaded package %s"), *CurrentPackage->GetLoadedPath().GetLocalFullPath());
     return CurrentPackage->FindAssetInPackage(RF_NoFlags);
 }
 
