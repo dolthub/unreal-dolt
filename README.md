@@ -16,7 +16,11 @@ Most of our testing was performed on Unreal 5.3, on MacOS and Linux, with Perfor
 
 ## How to Use
 
-After installing, configure the plugin via `Edit > Project Settings`
+After installing, configure the plugin via `Edit > Project Settings` to set the path to your dolt binary, path to your dolt repository, and names for your local and remote branches.
+
+Some tips:
+- If you don't know where the dolt binary is installed, use `which dolt` on Mac/Linux and `gcm dolt` on Windows Powershell.
+- You want to use a spearate dolt repository for each Unreal Project.
 
 Right clicking on any Data Table in the Content Browser will provide the following context-sensitive options in the `Scripted Asset Actions > Dolt` submenu:
 - Export to Dolt: Copies the table into Dolt
