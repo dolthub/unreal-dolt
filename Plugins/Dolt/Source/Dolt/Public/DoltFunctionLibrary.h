@@ -70,7 +70,7 @@ public:
 	static void ExportDataTable(
         const UDoltConnection* Dolt,
         const TArray<UObject*> &DataTables,
-        const FString &BranchName,
+        FString BranchName,
         TEnumAsByte<DoltResult::Type>& IsSuccess,
         FString &OutMessage);
 
@@ -78,7 +78,7 @@ public:
     static void ImportDataTable(
         const UDoltConnection* Dolt,
         const TArray<UObject*> &DataTables,
-        const FString &BranchName,
+        FString BranchName,
         TEnumAsByte<DoltResult::Type>& IsSuccess,
         FString &OutMessage);
 

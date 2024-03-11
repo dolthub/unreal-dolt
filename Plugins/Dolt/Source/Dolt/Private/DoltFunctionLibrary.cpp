@@ -23,10 +23,13 @@ const UDoltSettings* UDoltFunctionLibrary::GetDoltProjectSettings() {
 void UDoltFunctionLibrary::ExportDataTable(
     const UDoltConnection *Dolt,
     const TArray<UObject*> &DataTableObjects,
-    const FString &BranchName,
+    FString BranchName,
     TEnumAsByte<DoltResult::Type> &IsSuccess,
     FString &OutMessage)
 {
+    if (BranchName.IsEmpty()) {
+        BranchName = "local";
+    }
     TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     if (DataTables.Num() == 0) {
         DOLT_FAIL("No DataTables selected");
@@ -43,9 +46,12 @@ void UDoltFunctionLibrary::ExportDataTable(
 void UDoltFunctionLibrary::ImportDataTable(
         const UDoltConnection* Dolt,
         const TArray<UObject*> &DataTableObjects,
-        const FString &BranchName,
+        FString BranchName,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
+    if (BranchName.IsEmpty()) {
+        BranchName = "local";
+    }
     TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     if (DataTables.Num() == 0) {
         DOLT_FAIL("No DataTables selected");
@@ -66,6 +72,12 @@ void UDoltFunctionLibrary::ThreeWayExport(
         const TArray<UObject*> &DataTableObjects,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
+    if (LocalBranch.IsEmpty()) {
+        LocalBranch = "local";
+    }
+    if (RemoteBranch.IsEmpty()) {
+        RemoteBranch = "remote";
+    }
     UE_LOG(LogTemp, Display, TEXT("Beginning Three Way Export Operation"));
     TArray<UDataTable*> LocalDataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
@@ -120,6 +132,12 @@ void UDoltFunctionLibrary::PullRebase(
         FString RemoteBranch,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
+    if (LocalBranch.IsEmpty()) {
+        LocalBranch = "local";
+    }
+    if (RemoteBranch.IsEmpty()) {
+        RemoteBranch = "remote";
+    }
     TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     UE_LOG(LogTemp, Display, TEXT("Beginning Pull Rebase Operation"));
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
@@ -160,6 +178,12 @@ void UDoltFunctionLibrary::ResumePullRebase(
         FString RemoteBranch,
         TEnumAsByte<DoltResult::Type> &IsSuccess,
         FString &OutMessage) {
+    if (LocalBranch.IsEmpty()) {
+        LocalBranch = "local";
+    }
+    if (RemoteBranch.IsEmpty()) {
+        RemoteBranch = "remote";
+    }
     TArray<UDataTable*> DataTables = GetObjectsOfType<UDataTable>(DataTableObjects);
     ISourceControlProvider *SourceControlProvider = GetSourceControlProvider();
     if (!SourceControlProvider) {
